@@ -1,11 +1,16 @@
-import { useState, useEffect } from "react";
+import QuestionEditor from "../components/TicketBuilder/QuestionEditor";
 
 export default function TeacherNew() {
 
-    
-    return (
-        <div>
-            <p>Route: Teacher new</p>
-        </div>
-    )
+
+  return (
+    <div>
+      <div>
+        <p>Create New Exit Ticket</p>
+      </div>
+      
+      <QuestionEditor />
+
+    </div>
+  );
 }
