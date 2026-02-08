@@ -1,7 +1,99 @@
-export default function MCQEditor() {
-    return (
-        <div>
-            <p>MCQ Editor</p>
-        </div>
-    )
+export default function MCQEditor({ value, onChange }) {
+  // Expect value like:
+  // {
+  //   allowMultiple: false,
+  //   choices: [{ id: "A", text: "" }, ...],
+  //   correctIds: []
+  // }
+
+  const { allowMultiple, choices, correctIds } = value;
+
+  const update = (patch) => onChange({ ...value, ...patch });
+
+  const setChoiceText = (id, text) => {
+    const nextChoices = choices.map((c) => (c.id === id ? { ...c, text } : c));
+    update({ choices: nextChoices });
+  };
+
+  const toggleCorrect = (id) => {
+    if (allowMultiple) {
+      const nextCorrectIds = correctIds.includes(id)
+        ? correctIds.filter((x) => x !== id)
+        : [...correctIds, id];
+      update({ correctIds: nextCorrectIds });
+      return;
+    }
+
+    // single-correct mode
+    update({ correctIds: correctIds[0] === id ? [] : [id] });
+  };
+
+  const setAllowMultiple = (checked) => {
+    if (checked) {
+      update({ allowMultiple: true });
+      return;
+    }
+    // Switching from multi -> single: keep only first correct (or none)
+    update({ allowMultiple: false, correctIds: correctIds.slice(0, 1) });
+  };
+
+  const hasEmptyChoice = choices.some((c) => !c.text.trim());
+  const noCorrectSelected = correctIds.length === 0;
+
+  return (
+    <div style={{ border: "1px solid #ccc", padding: 12, marginTop: 12 }}>
+      <h3>Multiple Choice Options</h3>
+
+      <label style={{ display: "block", marginBottom: 8 }}>
+        <input
+          type="checkbox"
+          checked={allowMultiple}
+          onChange={(e) => setAllowMultiple(e.target.checked)}
+        />{" "}
+        Allow multiple correct answers
+      </label>
+
+      {choices.map((c) => {
+        const isCorrect = correctIds.includes(c.id);
+        return (
+          <div
+            key={c.id}
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => toggleCorrect(c.id)}
+              aria-pressed={isCorrect}
+              title={
+                allowMultiple
+                  ? "Toggle correct answer"
+                  : "Set as the correct answer"
+              }
+            >
+              {isCorrect ? "✅" : "⬜"} {c.id}
+            </button>
+
+            <input
+              value={c.text}
+              onChange={(e) => setChoiceText(c.id, e.target.value)}
+              placeholder={`Choice ${c.id}`}
+              style={{ flex: 1 }}
+            />
+          </div>
+        );
+      })}
+
+      {(hasEmptyChoice || noCorrectSelected) && (
+        <p style={{ marginTop: 8 }}>
+          {hasEmptyChoice && "Fill all 4 choices. "}
+          {noCorrectSelected && "Select at least one correct answer."}
+        </p>
+      )}
+    </div>
+  );
 }

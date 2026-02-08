@@ -10,14 +10,20 @@ export default function QuestionEditor() {
   const [isLive, setIsLive] = useState(false);
   const [shareLink, setShareLink] = useState("");
 
-  // editors can fill these later
+  // MC Data config
   const [mcqData, setMcqData] = useState({
-    choices: ["", "", "", ""],
-    correctIndex: null,
+    allowMultiple: false,
+    choices: [
+      { id: "A", text: "" },
+      { id: "B", text: "" },
+      { id: "C", text: "" },
+      { id: "D", text: "" },
+    ],
+    correctIds: [],
   });
 
   const [shortData, setShortData] = useState({
-    // placeholder for later3
+    expectedAnswer: "",
   });
 
   const [status, setStatus] = useState({ state: "idle", message: "" });
@@ -29,6 +35,34 @@ export default function QuestionEditor() {
     }
     if (!questionType) {
       setStatus({ state: "error", message: "Pick a question type." });
+      return;
+    }
+
+    // guard against empty MC options/ answer
+    if (questionType === "multipleChoice") {
+      const anyBlank = mcqData.choices.some((c) => !c.text.trim());
+      if (anyBlank) {
+        setStatus({
+          state: "error",
+          message: "Fill out all 4 answer choices.",
+        });
+        return;
+      }
+      if (!mcqData.correctIds.length) {
+        setStatus({
+          state: "error",
+          message: "Select at least one correct answer.",
+        });
+        return;
+      }
+    }
+
+    //guard against empty short Answer response
+    if (questionType === "shortResponse" && !shortData.expectedAnswer.trim()) {
+      setStatus({
+        state: "error",
+        message: "Enter an expected answer (teacher-only).",
+      });
       return;
     }
 
@@ -47,6 +81,14 @@ export default function QuestionEditor() {
     };
 
     try {
+      if (!auth.currentUser) {
+        setStatus({
+          state: "error",
+          message: "Auth not ready yet. Refresh and try again.",
+        });
+        return;
+      }
+
       const docRef = await addDoc(collection(db, "tickets"), ticketPayload);
 
       const ticketId = docRef.id;
@@ -57,9 +99,15 @@ export default function QuestionEditor() {
         message: `Ticket saved! Ticket ID: ${ticketId}`,
       });
 
-      // This is the "student route" you SHARE — not something you create dynamically.
+      // student route to share
       const studentPath = `/student/${ticketId}`;
       console.log("Share this link:", studentPath);
+
+      // clear question data after success
+      setQuestionText("");
+      setQuestionType("");
+      setMcqData({ choices: ["", "", "", ""], correctIndex: null });
+      setShortData({});
 
       // optional: store it in state to display + copy button
       setShareLink(studentPath);
