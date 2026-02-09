@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { db, auth } from "../../services/firebase/firebase";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
 import MCQEditor from "../TicketBuilder/MCQEditor";
 import ShortEditor from "../TicketBuilder/ShortEditor";
 
@@ -28,7 +28,47 @@ export default function QuestionEditor() {
 
   const [status, setStatus] = useState({ state: "idle", message: "" });
 
+  const uid = auth.currentUser.uid;
+  const nextIsLive = true;
+
+  //public docs viewable for students
+  const publicDoc = {
+    ownerId: uid,
+    questionText: questionText.trim(),
+    questionType,
+    isLive: nextIsLive,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+
+    publicConfig:
+      questionType === "multipleChoice"
+        ? {
+            allowMultiple: mcqData.allowMultiple,
+            choices: mcqData.choices,
+          }
+        : {},
+  };
+
+  // private docs viewable for teachers
+  const privateDoc = {
+    ownerId: uid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+
+    answerKey:
+      questionType === "multipleChoice"
+        ? { correctIds: mcqData.correctIds }
+        : { expectedAnswer: shortData.expectedAnswer?.trim() ?? "" },
+  };
+
   const handleMakeTicket = async () => {
+    if (!auth.currentUser) {
+      setStatus({
+        state: "error",
+        message: "Auth not ready yet. Refresh and try again.",
+      });
+      return;
+    }
     if (!questionText.trim()) {
       setStatus({ state: "error", message: "Question text is required." });
       return;
@@ -38,7 +78,7 @@ export default function QuestionEditor() {
       return;
     }
 
-    // guard against empty MC options/ answer
+    // type-specific validation MC
     if (questionType === "multipleChoice") {
       const anyBlank = mcqData.choices.some((c) => !c.text.trim());
       if (anyBlank) {
@@ -57,7 +97,7 @@ export default function QuestionEditor() {
       }
     }
 
-    //guard against empty short Answer response
+    /// type-specific validation short response
     if (questionType === "shortResponse" && !shortData.expectedAnswer.trim()) {
       setStatus({
         state: "error",
@@ -68,49 +108,75 @@ export default function QuestionEditor() {
 
     setStatus({ state: "saving", message: "Saving ticket..." });
 
+    const uid = auth.currentUser.uid;
     const nextIsLive = true;
 
-    const ticketPayload = {
+    // Build public doc (student-readable)
+    const publicDoc = {
+      ownerId: uid,
       questionText: questionText.trim(),
       questionType,
       isLive: nextIsLive,
-      ownerId: auth.currentUser?.uid ?? null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-      config: questionType === "multipleChoice" ? mcqData : shortData,
+
+      // public doc for students only, no answers
+      publicConfig:
+        questionType === "multipleChoice"
+          ? {
+              allowMultiple: mcqData.allowMultiple,
+              choices: mcqData.choices, // [{id, text}]
+            }
+          : {},
+    };
+
+    // Build private doc (teacher-only answer key)
+    const privateDoc = {
+      ownerId: uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+
+      // Teacher-only info
+      answerKey:
+        questionType === "multipleChoice"
+          ? { correctIds: mcqData.correctIds }
+          : { expectedAnswer: shortData.expectedAnswer?.trim() ?? "" },
     };
 
     try {
-      if (!auth.currentUser) {
-        setStatus({
-          state: "error",
-          message: "Auth not ready yet. Refresh and try again.",
-        });
-        return;
-      }
+      // Create a ticketId first so both docs share the same ID
+      const publicRef = doc(collection(db, "tickets_public")); // auto id - fireStore native
+      const ticketId = publicRef.id;
 
-      const docRef = await addDoc(collection(db, "tickets"), ticketPayload);
+      const privateRef = doc(db, "tickets_private", ticketId);
 
-      const ticketId = docRef.id;
+      await Promise.all([
+        setDoc(publicRef, publicDoc),
+        setDoc(privateRef, privateDoc),
+      ]);
 
       setIsLive(nextIsLive);
+      setShareLink(`/student/${ticketId}`);
+
       setStatus({
         state: "success",
-        message: `Ticket saved! Ticket ID: ${ticketId}`,
+        message: `Ticket published! Ticket ID: ${ticketId}`,
       });
 
-      // student route to share
-      const studentPath = `/student/${ticketId}`;
-      console.log("Share this link:", studentPath);
-
-      // clear question data after success
+      // Clear form state (keep shareLink so they can copy)
       setQuestionText("");
       setQuestionType("");
-      setMcqData({ choices: ["", "", "", ""], correctIndex: null });
-      setShortData({});
-
-      // optional: store it in state to display + copy button
-      setShareLink(studentPath);
+      setMcqData({
+        allowMultiple: false,
+        choices: [
+          { id: "A", text: "" },
+          { id: "B", text: "" },
+          { id: "C", text: "" },
+          { id: "D", text: "" },
+        ],
+        correctIds: [],
+      });
+      setShortData({ expectedAnswer: "" });
     } catch (err) {
       console.error("Error saving ticket:", err);
       setStatus({ state: "error", message: "Failed to save ticket." });
