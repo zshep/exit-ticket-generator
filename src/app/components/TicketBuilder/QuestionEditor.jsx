@@ -197,19 +197,7 @@ export default function QuestionEditor() {
 
       {isLive && <p>This ticket is NOT live.</p>}
 
-      {shareLink && (
-        <div>
-          <p>Student link:</p>
-          <code>{shareLink}</code>
-          <button
-            onClick={() =>
-              navigator.clipboard.writeText(window.location.origin + shareLink)
-            }
-          >
-            Copy link
-          </button>
-        </div>
-      )}
+
     </div>
   );
 }

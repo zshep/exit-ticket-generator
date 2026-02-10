@@ -1,4 +1,5 @@
 import QuestionEditor from "../components/TicketBuilder/QuestionEditor";
+import QuestionList from "../components/TicketBuilder/QuestionList";
 
 export default function TeacherNew() {
 
@@ -7,6 +8,9 @@ export default function TeacherNew() {
     <div>
            
       <QuestionEditor />
+
+      <QuestionList />
+
 
     </div>
   );

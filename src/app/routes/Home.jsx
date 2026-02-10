@@ -19,7 +19,7 @@ export default function Home() {
       <h1>Exit Ticket Generator</h1>
 
       <p>UID: {uid} </p>
-      <p> Anonymous? {String(user?.isAnonymous)}</p>
+      <p> {/*Anonymous? {String(user?.isAnonymous)} */}</p>
 
       <nav style={{ display: "flex", gap: 12 }}>
         <Link to="/teacher/new">Teacher: Build Ticket</Link>

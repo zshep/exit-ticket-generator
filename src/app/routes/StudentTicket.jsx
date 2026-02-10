@@ -21,7 +21,6 @@ export default function StudentTicket() {
   const { ticketId } = useParams();
 
   const [status, setStatus] = useState({ state: "loading", message: "" });
-
   const [ticket, setTicket] = useState(null);
 
   // Student responses (MVP)
