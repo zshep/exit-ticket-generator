@@ -28,38 +28,9 @@ export default function QuestionEditor() {
 
   const [status, setStatus] = useState({ state: "idle", message: "" });
 
-  const uid = auth.currentUser.uid;
-  const nextIsLive = true;
+  
 
-  //public docs viewable for students
-  const publicDoc = {
-    ownerId: uid,
-    questionText: questionText.trim(),
-    questionType,
-    isLive: nextIsLive,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-
-    publicConfig:
-      questionType === "multipleChoice"
-        ? {
-            allowMultiple: mcqData.allowMultiple,
-            choices: mcqData.choices,
-          }
-        : {},
-  };
-
-  // private docs viewable for teachers
-  const privateDoc = {
-    ownerId: uid,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-
-    answerKey:
-      questionType === "multipleChoice"
-        ? { correctIds: mcqData.correctIds }
-        : { expectedAnswer: shortData.expectedAnswer?.trim() ?? "" },
-  };
+ 
 
   const handleMakeTicket = async () => {
     if (!auth.currentUser) {
@@ -109,7 +80,7 @@ export default function QuestionEditor() {
     setStatus({ state: "saving", message: "Saving ticket..." });
 
     const uid = auth.currentUser.uid;
-    const nextIsLive = true;
+    const nextIsLive = false; //draft by default 
 
     // Build public doc (student-readable)
     const publicDoc = {
@@ -224,7 +195,7 @@ export default function QuestionEditor() {
 
       {status.state !== "idle" && <p>{status.message}</p>}
 
-      {isLive && <p>This ticket is live.</p>}
+      {isLive && <p>This ticket is NOT live.</p>}
 
       {shareLink && (
         <div>
