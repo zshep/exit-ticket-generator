@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  serverTimestamp,
+  addDoc,
+} from "firebase/firestore";
 import { db, auth } from "../services/firebase/firebase"; // adjust path if needed
 
 import ConfidencePicker from "../components/Student/ConfidencePicker";
@@ -62,7 +68,8 @@ export default function StudentTicket() {
         if (uid && data.ownerId === uid) {
           setStatus({
             state: "blocked",
-            message: "You are the owner of this ticket. Open the teacher view instead.",
+            message:
+              "You are the owner of this ticket. Open the teacher view instead.",
           });
           return;
         }
@@ -118,6 +125,58 @@ export default function StudentTicket() {
   const questionText = ticket?.questionText ?? "";
   const questionType = ticket?.questionType ?? "";
 
+  // submit btn
+  const handleSubmit = async () => {
+    if (!ticket) return;
+
+    if (confidence == null) {
+      alert("Please select your confidence level.");
+      return;
+    }
+
+    if (
+      ticket.questionType === "multipleChoice" &&
+      mcqSelectionIds.length === 0
+    ) {
+      alert("Please select at least one answer.");
+      return;
+    }
+
+    if (ticket.questionType === "shortResponse" && !shortAnswer.trim()) {
+      alert("Please enter a response.");
+      return;
+    }
+
+    try {
+      const studentId = auth.currentUser?.uid ?? null;
+
+      const submissionPayload = {
+        ticketId: ticket.id,
+        studentId,
+        questionType: ticket.questionType,
+        answer:
+          ticket.questionType === "multipleChoice"
+            ? mcqSelectionIds // ["A","C"]
+            : shortAnswer.trim(),
+        confidence,
+        submittedAt: serverTimestamp(),
+      };
+
+      await addDoc(
+        collection(db, "tickets_public", ticket.id, "submissions"),
+        submissionPayload,
+      );
+
+      setStatus({
+        state: "submitted",
+        message: "Response submitted. Thank you!",
+      });
+    } catch (err) {
+      console.error("Submit error:", err);
+      alert("Failed to submit response. Please try again.");
+    }
+  };
+
   return (
     <div>
       <h2>Exit Ticket</h2>
@@ -150,9 +209,24 @@ export default function StudentTicket() {
       <div style={{ marginTop: 16 }}>
         <ConfidencePicker value={confidence} onChange={setConfidence} />
       </div>
+      <div>
+        {status.state !== "submitted" && (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            style={{
+              marginTop: 20,
+              padding: "10px 16px",
+              fontSize: 16,
+              cursor: "pointer",
+            }}
+          >
+            Submit
+          </button>
+        )}
 
-      {/* Next: Submit button to write to submissions subcollection */}
-      {/* <button disabled>Submit</button> */}
+        {status.state === "submitted" && <p>{status.message}</p>}
+      </div>
     </div>
   );
 }
