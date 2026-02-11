@@ -15,16 +15,18 @@ export default function Home() {
   if (authError) return <div> Auth Error: {authError.message}</div>;
 
   return (
-    <div>
-      <h1>Exit Ticket Generator</h1>
+    <div className="home-container">
+      <h1 className="home-title">Exit Ticket Generator</h1>
 
-      
-      <p> Welcome! To start building an Exit Ticket, click on the Exit Ticket Dashboard</p>
+      <p className="home-subtext">
+        Create quick, focused exit tickets and see student understanding in real
+        time.
+      </p>
 
-      <nav style={{ display: "flex", justifyContent: "center", gap: 12 }}>
-        <Link to="/teacher/new"> Exit Ticket Dashboard</Link>
-        
-        
+      <nav className="home-nav">
+        <Link className="primary-link" to="/teacher/new">
+          Dashboard
+        </Link>
       </nav>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   collection,
@@ -11,10 +11,10 @@ import {
   serverTimestamp,
   deleteDoc,
 } from "firebase/firestore";
-import { db, auth } from "../../services/firebase/firebase";
+import { db } from "../../services/firebase/firebase";
+import { useAuth } from "../../context/AuthContext";
 
-async function setTicketLive(ticketId, isLive) {
-  const uid = auth.currentUser?.uid;
+async function setTicketLive(uid, ticketId, isLive) {
   if (!uid) throw new Error("Auth not ready");
 
   const ref = doc(db, "tickets_public", ticketId);
@@ -24,33 +24,28 @@ async function setTicketLive(ticketId, isLive) {
   });
 }
 
-async function deleteTicket(ticketId) {
-  const uid = auth.currentUser?.uid;
+async function deleteTicket(uid, ticketId) {
   if (!uid) throw new Error("Auth not ready");
 
-  // Delete public + private docs (same id)
   const pubRef = doc(db, "tickets_public", ticketId);
   const privRef = doc(db, "tickets_private", ticketId);
 
-  // Order doesn't matter; do both
   await Promise.all([deleteDoc(pubRef), deleteDoc(privRef)]);
 }
 
 export default function QuestionList() {
   const navigate = useNavigate();
+  const { uid, loading, authError } = useAuth();
 
   const [tickets, setTickets] = useState([]);
-  const [status, setStatus] = useState({ state: "loading", message: "" });
+  const [toast, setToast] = useState(""); // for "Copied!" etc.
+  const [error, setError] = useState(""); // for snapshot/delete errors
+  const [filter, setFilter] = useState("all"); // "all" | "live" | "closed"
 
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
+    if (loading || authError || !uid) return;
 
-    if (!uid) {
-      setStatus({ state: "error", message: "Auth not ready yet. Refresh." });
-      return;
-    }
-
-    setStatus({ state: "loading", message: "Loading your tickets..." });
+    setError("");
 
     const q = query(
       collection(db, "tickets_public"),
@@ -63,58 +58,101 @@ export default function QuestionList() {
       (snap) => {
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setTickets(rows);
-        setStatus({ state: "ready", message: "" });
       },
       (err) => {
         console.error("QuestionList snapshot error:", err);
-        setStatus({
-          state: "error",
-          message: "Failed to load tickets (permissions or network).",
-        });
+        setError("Failed to load tickets (permissions or network).");
       }
     );
 
     return () => unsub();
-  }, []);
+  }, [uid, loading, authError]);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 1200);
+  };
 
   const copyStudentLink = async (ticketId) => {
     const link = `${window.location.origin}/student/${ticketId}`;
     try {
       await navigator.clipboard.writeText(link);
-      setStatus({ state: "ready", message: "Copied student link!" });
-      // clear message after a moment (optional)
-      setTimeout(() => setStatus({ state: "ready", message: "" }), 1200);
+      showToast("Copied student link!");
     } catch (e) {
       console.error(e);
-      setStatus({ state: "error", message: "Could not copy link." });
+      setError("Could not copy link.");
     }
   };
 
   const goTeacherLive = (ticketId) => {
-    // Adjust this route to match your app
-    // Example: /teacher/live/:ticketId
     navigate(`/teacher/live/${ticketId}`);
   };
 
-  if (status.state === "loading") return <p>{status.message}</p>;
+  const counts = useMemo(() => {
+    const live = tickets.filter((t) => !!t.isLive).length;
+    const closed = tickets.length - live;
+    return { all: tickets.length, live, closed };
+  }, [tickets]);
 
-  if (status.state === "error") {
-    return (
-      <div>
-        <p>{status.message}</p>
-      </div>
-    );
-  }
+  const filteredTickets = useMemo(() => {
+    if (filter === "live") return tickets.filter((t) => !!t.isLive);
+    if (filter === "closed") return tickets.filter((t) => !t.isLive);
+    return tickets;
+  }, [tickets, filter]);
+
+  if (loading) return <p>Loading…</p>;
+  if (authError) return <p>Auth Error: {authError.message}</p>;
+  if (!uid) return <p>Loading…</p>;
+  if (error) return <p>{error}</p>;
 
   return (
     <div>
-      <h3>Question List</h3>
+      {/* Toolbar */}
+      <div className="list-toolbar">
+        <div className="list-toolbar-left">
+          <h3 className="list-title">Tickets</h3>
 
-      {status.message && <p>{status.message}</p>}
+          <div className="pill-row" role="tablist" aria-label="Ticket filters">
+            <button
+              type="button"
+              className={`pill ${filter === "all" ? "active" : ""}`}
+              onClick={() => setFilter("all")}
+            >
+              All <span className="pill-count">{counts.all}</span>
+            </button>
+
+            <button
+              type="button"
+              className={`pill ${filter === "live" ? "active" : ""}`}
+              onClick={() => setFilter("live")}
+            >
+              Live <span className="pill-count">{counts.live}</span>
+            </button>
+
+            <button
+              type="button"
+              className={`pill ${filter === "closed" ? "active" : ""}`}
+              onClick={() => setFilter("closed")}
+            >
+              Closed <span className="pill-count">{counts.closed}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="list-toolbar-right">
+          {toast && <div className="toolbar-message">{toast}</div>}
+        </div>
+      </div>
 
       {tickets.length === 0 && <p>No tickets yet.</p>}
 
-      {tickets.map((t) => {
+      {filteredTickets.length === 0 && tickets.length > 0 && (
+        <p style={{ marginTop: 10, color: "#6b7280" }}>
+          No tickets match that filter.
+        </p>
+      )}
+
+      {filteredTickets.map((t) => {
         const isLive = !!t.isLive;
         const typeLabel =
           t.questionType === "multipleChoice"
@@ -124,66 +162,67 @@ export default function QuestionList() {
             : t.questionType;
 
         return (
-          <div
-            key={t.id}
-            style={{
-              border: "1px solid #ccc",
-              padding: 12,
-              marginBottom: 12,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0 }}>
-                  <strong>{typeLabel}</strong>{" "}
-                  {isLive ? "🟢 Live" : "⚪ Draft/Closed"}
-                </p>
-                <p style={{ marginTop: 6 }}>
-                  {t.questionText || <em>(no question text)</em>}
-                </p>
-                <p style={{ margin: 0, fontSize: 12 }}>
-                  <code>{t.id}</code>
-                </p>
+          <div key={t.id} className="ticket-card">
+            <div className="ticket-main">
+              <div className="ticket-meta">
+                <div className="ticket-type">{typeLabel}</div>
+                <div className={`ticket-status ${isLive ? "live" : "closed"}`}>
+                  {isLive ? "Live" : "Closed"}
+                </div>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setTicketLive(t.id, !isLive)}
-                >
-                  {isLive ? "Close Ticket" : "Make Live"}
-                </button>
+              <p className="ticket-question">
+                {t.questionText || <em>(no question text)</em>}
+              </p>
 
-                <button type="button" onClick={() => copyStudentLink(t.id)}>
-                  Copy Link
-                </button>
+              <p className="ticket-id">
+                <code>{t.id}</code>
+              </p>
+            </div>
 
-                <button type="button" onClick={() => goTeacherLive(t.id)}>
-                  Teacher Live View
-                </button>
+            <div className="ticket-actions">
+              <button
+                className={`btn ${isLive ? "btn-secondary" : "btn-primary"}`}
+                type="button"
+                onClick={async () => {
+                  try {
+                    await setTicketLive(uid, t.id, !isLive);
+                    showToast(!isLive ? "Ticket is now Live." : "Ticket closed.");
+                  } catch (e) {
+                    console.error(e);
+                    setError("Update failed (permissions or network).");
+                  }
+                }}
+              >
+                {isLive ? "Close Ticket" : "Make Live"}
+              </button>
 
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const ok = window.confirm(
-                      "Delete this ticket? This cannot be undone."
-                    );
-                    if (!ok) return;
+              <button className="btn btn-secondary" type="button" onClick={() => copyStudentLink(t.id)}>
+                Copy Link
+              </button>
 
-                    try {
-                      await deleteTicket(t.id);
-                    } catch (err) {
-                      console.error(err);
-                      setStatus({
-                        state: "error",
-                        message: "Delete failed (permissions or network).",
-                      });
-                    }
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
+              <button className="btn btn-secondary" type="button" onClick={() => goTeacherLive(t.id)}>
+                Teacher Live View
+              </button>
+
+              <button
+                className="btn btn-danger"
+                type="button"
+                onClick={async () => {
+                  const ok = window.confirm("Delete this ticket? This cannot be undone.");
+                  if (!ok) return;
+
+                  try {
+                    await deleteTicket(uid, t.id);
+                    showToast("Ticket deleted.");
+                  } catch (e) {
+                    console.error(e);
+                    setError("Delete failed (permissions or network).");
+                  }
+                }}
+              >
+                Delete
+              </button>
             </div>
           </div>
         );
