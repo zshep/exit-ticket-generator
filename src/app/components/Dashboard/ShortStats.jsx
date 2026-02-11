@@ -48,34 +48,44 @@ export default function ShortStats({ ticket, submissions, answerKey }) {
     };
   }, [ticket, answerKey, submissions]);
 
+  const total = shortStats?.responses.length ?? 0;
+
   return (
-    <div style={{ marginTop: 16 }}>
-      <h4>Short Response Results</h4>
+    <div className="stats-block">
+      <div className="stats-header">
+        <h4 className="stats-title">Short Response Analysis</h4>
 
-      <p>
-        <strong>Correct:</strong> {shortStats?.correctCount ?? 0} /{" "}
-        {shortStats?.responses.length ?? 0} ({shortStats?.correctPct ?? 0}%)
-      </p>
+        <div className="stats-kpi">
+          <div className="summary-card">
+            <div className="summary-label">Correct</div>
+            <div className="summary-value">
+              {shortStats?.correctCount ?? 0} / {total} ({shortStats?.correctPct ?? 0}%)
+            </div>
+          </div>
 
-      <p>
-        <strong>Most common answer:</strong>{" "}
-        {shortStats?.mostCommon
-          ? `"${shortStats.mostCommon}" (${shortStats.mostCommonCount})`
-          : "—"}
-      </p>
+          <div className="summary-card">
+            <div className="summary-label">Most Common</div>
+            <div className="summary-value">
+              {shortStats?.mostCommon
+                ? `"${shortStats.mostCommon}" (${shortStats.mostCommonCount})`
+                : "—"}
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <div style={{ marginTop: 12 }}>
-        <h4>Responses</h4>
-        {shortStats?.responses?.length ? (
-          <ol>
+      <div className="stats-card">
+        <h5 className="stats-card-title">Responses</h5>
+        {total ? (
+          <ol className="response-list">
             {shortStats.responses.map((r, idx) => (
-              <li key={idx} style={{ marginBottom: 6 }}>
+              <li key={idx} className="response-item">
                 {r}
               </li>
             ))}
           </ol>
         ) : (
-          <p>No responses yet.</p>
+          <p style={{ margin: 0, color: "#6b7280" }}>No responses yet.</p>
         )}
       </div>
     </div>

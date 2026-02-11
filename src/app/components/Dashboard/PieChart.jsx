@@ -1,104 +1,108 @@
 import { useMemo } from "react";
 
-export default function PieChart({ counts, labelsById, size = 180 }) {
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
-  const radius = size / 2 - 10;
-  const cx = size / 2;
-  const cy = size / 2;
+function safeSum(obj) {
+  return Object.values(obj).reduce((a, b) => a + (Number(b) || 0), 0);
+}
 
-  const slices = useMemo(() => {
-    let startAngle = -Math.PI / 2;
+function polarToCartesian(cx, cy, r, angleDeg) {
+  const angle = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+}
 
-    const entries = Object.entries(counts);
-    const nonZero = entries.filter(([, c]) => c > 0);
+function arcPath(cx, cy, r, startAngle, endAngle) {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y} Z`;
+}
 
-    // single-slice full circle fix
-    if (total > 0 && nonZero.length === 1) {
-      const [id, count] = nonZero[0];
-      const hue = 0;
-      const fill = `hsl(${hue} 70% 55%)`;
+function pct(value, total) {
+  if (!total) return 0;
+  return Math.round((value / total) * 100);
+}
 
-      const x1 = cx + radius;
-      const y1 = cy;
+export default function PieChart({ counts, labelsById, size = 220 }) {
+  const total = useMemo(() => safeSum(counts || {}), [counts]);
 
-      const d = [
-        `M ${cx} ${cy}`,
-        `L ${x1} ${y1}`,
-        `A ${radius} ${radius} 0 1 1 ${cx - radius} ${cy}`,
-        `A ${radius} ${radius} 0 1 1 ${x1} ${y1}`,
-        "Z",
-      ].join(" ");
+  const entries = useMemo(() => {
+    return Object.entries(counts || {}).map(([id, value]) => ({
+      id,
+      value: Number(value) || 0,
+      label: labelsById?.[id] ?? "",
+    }));
+  }, [counts, labelsById]);
 
-      return [
-        {
-          id,
-          count,
-          d,
-          fill,
-          pct: 100,
-          label: labelsById?.[id] ?? id,
-        },
-      ];
-    }
+  const nonZero = useMemo(() => entries.filter((e) => e.value > 0), [entries]);
 
-    return entries.map(([id, count], idx) => {
-      const frac = total ? count / total : 0;
-      const angle = frac * Math.PI * 2;
-      const endAngle = startAngle + angle;
+  const r = Math.floor(size / 2) - 6;
+  const cx = Math.floor(size / 2);
+  const cy = Math.floor(size / 2);
 
-      const x1 = cx + radius * Math.cos(startAngle);
-      const y1 = cy + radius * Math.sin(startAngle);
-      const x2 = cx + radius * Math.cos(endAngle);
-      const y2 = cy + radius * Math.sin(endAngle);
+  const palette = [
+    "#22c55e", // green
+    "#ef4444", // red
+    "#3b82f6", // blue
+    "#facc15", // yellow
+    "#a855f7", // purple (backup)
+    "#06b6d4", // cyan (backup)
+  ];
 
-      const largeArc = angle > Math.PI ? 1 : 0;
-
-      const d = [
-        `M ${cx} ${cy}`,
-        `L ${x1} ${y1}`,
-        `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
-        "Z",
-      ].join(" ");
-
-      const hue = (idx * 67) % 360;
-      const fill = `hsl(${hue} 70% 55%)`;
-
-      const slice = {
-        id,
-        count,
-        d,
-        fill,
-        pct: total ? Math.round(frac * 100) : 0,
-        label: labelsById?.[id] ?? id,
-      };
-
-      startAngle = endAngle;
-      return slice;
-    });
-  }, [counts, labelsById, total, cx, cy, radius]);
+  let angle = 0;
 
   return (
-    <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-      <svg width={size} height={size} role="img" aria-label="Response distribution pie chart">
-        <circle cx={cx} cy={cy} r={radius} fill="#f3f3f3" stroke="#ddd" />
-        {slices.map((s) => (
-          <path key={s.id} d={s.d} fill={s.fill} stroke="#fff" strokeWidth="2" />
-        ))}
+    <div className="pie-wrap">
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label="Answer distribution"
+      >
+        {total === 0 ? (
+          <circle cx={cx} cy={cy} r={r} fill="#e5e7eb" />
+        ) : (
+          nonZero.map((slice, idx) => {
+            const deg = (slice.value / total) * 360;
+            const start = angle;
+            const end = angle + deg;
+            angle = end;
+
+            return (
+              <path
+                key={slice.id}
+                d={arcPath(cx, cy, r, start, end)}
+                fill={palette[idx % palette.length]}
+                stroke="#ffffff"
+                strokeWidth="2"
+              />
+            );
+          })
+        )}
       </svg>
 
-      <div>
-        <h4 style={{ margin: "0 0 8px 0" }}>Distribution</h4>
-        {slices.map((s) => (
-          <div key={s.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-            <span style={{ width: 12, height: 12, background: s.fill, display: "inline-block", borderRadius: 2 }} />
-            <span style={{ fontWeight: 700 }}>{s.id}</span>
-            <span style={{ opacity: 0.85 }}>{s.label}</span>
-            <span style={{ marginLeft: "auto" }}>
-              {s.count} ({s.pct}%)
-            </span>
+      <div className="pie-legend">
+        {entries.map((e, idx) => (
+          <div key={e.id} className="pie-legend-row">
+            <span
+              className="pie-swatch"
+              style={{ background: palette[idx % palette.length] }}
+            />
+            <div className="pie-legend-text">
+              <div className="pie-legend-top">
+                <strong>{e.id}</strong>{" "}
+                <span className="pie-legend-label">
+                  {e.label ? `— ${e.label}` : ""}
+                </span>
+              </div>
+
+              <div className="pie-legend-bottom">
+                <span className="pie-metric">{e.value}</span>
+                <span className="pie-dot">•</span>
+                <span className="pie-metric">{pct(e.value, total)}%</span>
+              </div>
+            </div>
           </div>
         ))}
-        {total === 0 && <p style={{ marginTop: 8 }}>No submissions yet.</p>}
       </div>
     </div>
   );

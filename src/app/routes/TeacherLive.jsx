@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   doc,
@@ -10,64 +10,122 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db, auth } from "../services/firebase/firebase"; 
+import { db } from "../services/firebase/firebase";
+import { useAuth } from "../context/AuthContext";
+
 import MCQStats from "../components/Dashboard/MCQStats";
 import ShortStats from "../components/Dashboard/ShortStats";
 
-
-
-
-// ---------- component ----------
 export default function TeacherLive() {
   const { ticketId } = useParams();
   const navigate = useNavigate();
+  const { uid, loading: authLoading, authError } = useAuth();
 
   const [status, setStatus] = useState({
     state: "loading",
     message: "Loading...",
   });
+  const [ticket, setTicket] = useState(null);
+  const [answerKey, setAnswerKey] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
 
-  const [ticket, setTicket] = useState(null); // from tickets_public
-  const [answerKey, setAnswerKey] = useState(null); // from tickets_private
-  const [submissions, setSubmissions] = useState([]); // from subcollection
+  // Always compute these (safe defaults) BEFORE early returns
+  const submissionCount = submissions.length;
 
-  // Load ticket_public + ticket_private once; then subscribe to submissions live
+  const studentLink = useMemo(() => {
+    if (!ticketId) return "";
+    return `${window.location.origin}/student/${ticketId}`;
+  }, [ticketId]);
+
+  const correctSummary = useMemo(() => {
+    const total = submissions.length;
+
+    // default (safe during loading)
+    if (!ticket) return { correctCount: 0, total, pct: 0 };
+
+    if (ticket.questionType === "multipleChoice") {
+      const correctIds = (answerKey?.correctIds ?? []).map(String);
+      const correctSet = new Set(correctIds);
+
+      const setsEqual = (a, b) => {
+        if (a.size !== b.size) return false;
+        for (const x of a) if (!b.has(x)) return false;
+        return true;
+      };
+
+      let correctCount = 0;
+      for (const s of submissions) {
+        const ansArr = Array.isArray(s.answer) ? s.answer.map(String) : [];
+        const ansSet = new Set(ansArr);
+        if (correctSet.size > 0 && setsEqual(ansSet, correctSet))
+          correctCount += 1;
+      }
+
+      const pct = total ? Math.round((correctCount / total) * 100) : 0;
+      return { correctCount, total, pct };
+    }
+
+    if (ticket.questionType === "shortResponse") {
+      const normalize = (s) =>
+        (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+      const expected = normalize(answerKey?.expectedAnswer ?? "");
+      if (!expected) return { correctCount: 0, total, pct: 0 };
+
+      let correctCount = 0;
+      for (const s of submissions) {
+        const ans = normalize(String(s.answer ?? ""));
+        if (ans && ans === expected) correctCount += 1;
+      }
+
+      const pct = total ? Math.round((correctCount / total) * 100) : 0;
+      return { correctCount, total, pct };
+    }
+
+    return { correctCount: 0, total, pct: 0 };
+  }, [ticket, answerKey, submissions]);
+
   useEffect(() => {
     let unsubSubmissions = null;
 
     async function init() {
       try {
-        setStatus({ state: "loading", message: "Loading ticket..." });
+        if (authLoading) return;
 
-        const uid = auth.currentUser?.uid;
-        if (!uid) {
+        if (authError) {
           setStatus({
             state: "error",
-            message: "Auth not ready. Refresh and try again.",
+            message: `Auth Error: ${authError.message}`,
           });
           return;
         }
+
+        if (!uid) {
+          setStatus({ state: "loading", message: "Loading..." });
+          return;
+        }
+
         if (!ticketId) {
           setStatus({ state: "error", message: "Missing ticketId in route." });
           return;
         }
 
-        // Load public ticket
+        setStatus({ state: "loading", message: "Loading ticket..." });
+
         const pubRef = doc(db, "tickets_public", ticketId);
         const pubSnap = await getDoc(pubRef);
+
         if (!pubSnap.exists()) {
           setStatus({ state: "error", message: "Ticket not found." });
           return;
         }
+
         const pubData = { id: pubSnap.id, ...pubSnap.data() };
 
-        // Enforce ownership in UI too (rules should already enforce)
         if (pubData.ownerId !== uid) {
           setStatus({ state: "error", message: "You do not own this ticket." });
           return;
         }
 
-        // Load private answer key
         const privRef = doc(db, "tickets_private", ticketId);
         const privSnap = await getDoc(privRef);
         const privData = privSnap.exists() ? privSnap.data() : null;
@@ -75,7 +133,6 @@ export default function TeacherLive() {
         setTicket(pubData);
         setAnswerKey(privData?.answerKey ?? null);
 
-        // Subscribe to submissions live
         const subQ = query(
           collection(db, "tickets_public", ticketId, "submissions"),
           orderBy("submittedAt", "asc"),
@@ -107,19 +164,11 @@ export default function TeacherLive() {
     return () => {
       if (unsubSubmissions) unsubSubmissions();
     };
-  }, [ticketId]);
-
-  const submissionCount = submissions.length;
-
-  
-
-  
+  }, [ticketId, uid, authLoading, authError]);
 
   async function toggleTicketLive() {
     try {
-      if (!ticketId) return;
-      const uid = auth.currentUser?.uid;
-      if (!uid) throw new Error("Auth not ready");
+      if (!ticketId || !uid) return;
 
       const next = !ticket?.isLive;
 
@@ -128,7 +177,6 @@ export default function TeacherLive() {
         updatedAt: serverTimestamp(),
       });
 
-      // Optimistic UI update (snapshot will confirm)
       setTicket((t) => (t ? { ...t, isLive: next } : t));
     } catch (err) {
       console.error("toggleTicketLive error:", err);
@@ -136,67 +184,107 @@ export default function TeacherLive() {
     }
   }
 
+  const copyStudentLink = async () => {
+    try {
+      await navigator.clipboard.writeText(studentLink);
+      setStatus((s) => ({ ...s, message: "Copied student link!" }));
+      setTimeout(() => setStatus((s) => ({ ...s, message: "" })), 1200);
+    } catch (e) {
+      console.error(e);
+      alert("Could not copy link.");
+    }
+  };
+
+  // now safe to early return (all hooks already ran)
   if (status.state === "loading") return <p>{status.message}</p>;
   if (status.state === "error") return <p>{status.message}</p>;
 
-  // ready
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h2 style={{ marginBottom: 6 }}>Teacher Live</h2>
-          <p style={{ marginTop: 0 }}>
-            <strong>Status:</strong> {ticket?.isLive ? "🟢 Live" : "⚪ Closed"}{" "}
-            <br />
-            <strong>Submissions:</strong> {submissionCount}
-          </p>
-        </div>
+    <div className="tl">
+      <header className="tl-header">
+        <h2 className="tl-title">Teacher Live</h2>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-          <button type="button" onClick={() => navigate("/teacher/new")}>
+        <div className="tl-controls">
+          <button
+            className="btn btn-secondary btn-sm"
+            type="button"
+            onClick={() => navigate("/teacher/new")}
+          >
             Back
           </button>
-          <button type="button" onClick={toggleTicketLive}>
+
+          <button
+            className={`btn btn-sm ${ticket?.isLive ? "btn-secondary" : "btn-primary"}`}
+            type="button"
+            onClick={toggleTicketLive}
+          >
             {ticket?.isLive ? "Close Ticket" : "Open Ticket"}
           </button>
 
           <button
+            className="btn btn-secondary btn-sm"
             type="button"
-            onClick={() =>
-              navigator.clipboard.writeText(
-                `${window.location.origin}/student/${ticketId}`,
-              )
-            }
+            onClick={copyStudentLink}
           >
             Copy Student Link
           </button>
         </div>
+
+        {status.message && <div className="tl-toast">{status.message}</div>}
+      </header>
+
+      <hr className="tl-divider" />
+
+      <div className="tl-question">
+        <h3 className="tl-question-text">{ticket?.questionText}</h3>
+
+        <div className="tl-summary">
+          <div className="summary-card">
+            <div className="summary-label">Status</div>
+            <div className="summary-value">
+              <span
+                className={`status-dot ${ticket?.isLive ? "live" : "closed"}`}
+              />
+              {ticket?.isLive ? "Live" : "Closed"}
+            </div>
+          </div>
+
+          <div className="summary-card">
+            <div className="summary-label">Submissions</div>
+            <div className="summary-value">{submissionCount}</div>
+          </div>
+
+          <div className="summary-card">
+            <div className="summary-label">Correct</div>
+            <div className="summary-value">
+              {correctSummary.correctCount} / {correctSummary.total} (
+              {correctSummary.pct}%)
+            </div>
+          </div>
+        </div>
       </div>
 
-      <hr />
+      <div className="tl-content">
+        {ticket?.questionType === "shortResponse" && (
+          <ShortStats
+            ticket={ticket}
+            submissions={submissions}
+            answerKey={answerKey}
+          />
+        )}
 
-      <h3 style={{ marginTop: 12 }}>{ticket?.questionText}</h3>
+        {ticket?.questionType === "multipleChoice" && (
+          <MCQStats
+            ticket={ticket}
+            submissions={submissions}
+            answerKey={answerKey}
+          />
+        )}
 
-      {/* ---------- SHORT RESPONSE VIEW ---------- */}
-      {ticket?.questionType === "shortResponse" && (
-       <ShortStats ticket={ticket} submissions={submissions} answerKey={answerKey} />
-      )}
-
-      {/* ---------- MCQ VIEW ---------- */}
-      {ticket?.questionType === "multipleChoice" && (
-     <MCQStats ticket={ticket} submissions={submissions} answerKey={answerKey} />
-      )}
-
-      {!["multipleChoice", "shortResponse"].includes(ticket?.questionType) && (
-        <p>Unsupported question type: {ticket?.questionType}</p>
-      )}
+        {!["multipleChoice", "shortResponse"].includes(
+          ticket?.questionType,
+        ) && <p>Unsupported question type: {ticket?.questionType}</p>}
+      </div>
     </div>
   );
 }
