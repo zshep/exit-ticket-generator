@@ -7,28 +7,18 @@ export default function ConfidencePicker({ value, onChange }) {
   ];
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <h4 style={{ marginBottom: 8 }}>Confidence</h4>
+    <div className="conf">
+      <h4 className="conf-title">Confidence</h4>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div className="conf-buttons" role="group" aria-label="Confidence level">
         {options.map((opt) => {
           const selected = value === opt.n;
-
           return (
             <button
               key={opt.n}
               type="button"
+              className={`conf-btn ${selected ? "is-selected" : ""}`}
               onClick={() => onChange(opt.n)}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "1px solid #ccc",
-                cursor: "pointer",
-                fontWeight: 700,
-                background: selected ? "#2e7d32" : "white",
-                color: selected ? "white" : "black",
-                minWidth: 56,
-              }}
               aria-pressed={selected}
             >
               {opt.n}
@@ -37,22 +27,15 @@ export default function ConfidencePicker({ value, onChange }) {
         })}
       </div>
 
-      <div style={{ marginTop: 10 }}>
+      <div className="conf-labels">
         {options.map((opt) => {
           const selected = value === opt.n;
-
           return (
             <div
               key={opt.n}
-              style={{
-                display: "flex",
-                gap: 10,
-                alignItems: "baseline",
-                opacity: selected || value == null ? 1 : 0.6,
-                marginTop: 6,
-              }}
+              className={`conf-row ${selected || value == null ? "" : "is-dim"}`}
             >
-              <span style={{ fontWeight: 700, width: 18 }}>{opt.n}:</span>
+              <span className="conf-num">{opt.n}:</span>
               <span>{opt.label}</span>
             </div>
           );

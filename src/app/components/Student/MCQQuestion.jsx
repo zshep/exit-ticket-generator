@@ -16,20 +16,33 @@ export default function MCQQuestion({
     }
   };
 
-  return (
-    <div>
-      <p>Select your answer{allowMultiple ? "(s)" : ""}:</p>
-      {choices.map((c) => (
-        <label key={c.id} style={{ display: "block", marginBottom: 8 }}>
-          <input
-            type={allowMultiple ? "checkbox" : "radio"}
-            name="mcq"
-            checked={selectedIds.includes(c.id)}
-            onChange={() => toggle(c.id)}
-          />
-          {" "}{c.text}
-        </label>
-      ))}
+return (
+  <div className="student-mcq">
+    <p className="student-mcq-label">
+      Select your answer{allowMultiple ? "(s)" : ""}:
+    </p>
+
+    <div className="student-mcq-options">
+      {choices.map((c) => {
+        const selected = selectedIds.includes(c.id);
+
+        return (
+          <label
+            key={c.id}
+            className={`student-mcq-option ${selected ? "selected" : ""}`}
+          >
+            <input
+              type={allowMultiple ? "checkbox" : "radio"}
+              name="mcq"
+              checked={selected}
+              onChange={() => toggle(c.id)}
+            />
+            <span className="student-mcq-text">{c.text}</span>
+          </label>
+        );
+      })}
     </div>
-  );
+  </div>
+);
+
 }

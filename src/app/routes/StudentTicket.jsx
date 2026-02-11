@@ -1,19 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import {
-  collection,
-  doc,
-  getDoc,
-  serverTimestamp,
-  addDoc,
-} from "firebase/firestore";
-import { db, auth } from "../services/firebase/firebase"; // adjust path if needed
+import { collection, doc, getDoc, serverTimestamp, addDoc } from "firebase/firestore";
+import { db, auth } from "../services/firebase/firebase";
 
 import ConfidencePicker from "../components/Student/ConfidencePicker";
 import MCQQuestion from "../components/Student/MCQQuestion";
 import ShortQuestion from "../components/Student/ShortQuestion";
 
-// Fisher–Yates shuffle (stable when you call it once and store result)
+// Fisher–Yates shuffle
 function shuffle(array) {
   const a = [...array];
   for (let i = a.length - 1; i > 0; i--) {
@@ -29,10 +23,11 @@ export default function StudentTicket() {
   const [status, setStatus] = useState({ state: "loading", message: "" });
   const [ticket, setTicket] = useState(null);
 
-  // Student responses (MVP)
-  const [mcqSelectionIds, setMcqSelectionIds] = useState([]); // store choice IDs (A/B/C/D), not indexes
+  const [mcqSelectionIds, setMcqSelectionIds] = useState([]);
   const [shortAnswer, setShortAnswer] = useState("");
   const [confidence, setConfidence] = useState(null);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +41,6 @@ export default function StudentTicket() {
           return;
         }
 
-        // NOTE: We only read the public doc in student view
         const ref = doc(db, "tickets_public", ticketId);
         const snap = await getDoc(ref);
 
@@ -57,19 +51,16 @@ export default function StudentTicket() {
 
         const data = { id: snap.id, ...snap.data() };
 
-        // Optional: If you want to enforce "live" on client side too
         if (!data.isLive) {
           setStatus({ state: "error", message: "This ticket is not live." });
           return;
         }
 
-        // Block owner from taking their own ticket (teacher device)
         const uid = auth.currentUser?.uid ?? null;
         if (uid && data.ownerId === uid) {
           setStatus({
             state: "blocked",
-            message:
-              "You are the owner of this ticket. Open the teacher view instead.",
+            message: "You are the owner of this ticket. Open the teacher view instead.",
           });
           return;
         }
@@ -78,15 +69,13 @@ export default function StudentTicket() {
           setTicket(data);
           setStatus({ state: "ready", message: "" });
 
-          // reset responses when ticket loads
           setMcqSelectionIds([]);
           setShortAnswer("");
           setConfidence(null);
+          setIsSubmitting(false);
         }
       } catch (err) {
         console.error("StudentTicket load error:", err);
-
-        // Common with rules: Missing or insufficient permissions
         if (!cancelled) {
           setStatus({
             state: "error",
@@ -103,49 +92,67 @@ export default function StudentTicket() {
     };
   }, [ticketId]);
 
-  // Scramble choices once per ticket load (important!)
   const scrambledChoices = useMemo(() => {
     if (!ticket) return [];
     if (ticket.questionType !== "multipleChoice") return [];
     const choices = ticket.publicConfig?.choices ?? [];
     return shuffle(choices);
-  }, [ticket?.id]); // only re-shuffle when the ticket changes
+  }, [ticket?.id]);
 
-  if (status.state === "loading") return <p>{status.message}</p>;
+  if (status.state === "loading") return <p className="page-loading">{status.message}</p>;
 
   if (status.state === "error" || status.state === "blocked") {
     return (
-      <div>
-        <p>{status.message}</p>
+      <div className="student-page">
+        <div className="panel student-panel">
+          <h2 className="student-title">Exit Ticket</h2>
+          <p className="student-muted">{status.message}</p>
+        </div>
       </div>
     );
   }
 
-  // status.state === "ready"
+  if (status.state === "submitted") {
+    return (
+      <div className="student-page">
+        <div className="panel student-panel">
+          <h2 className="student-title">Exit Ticket</h2>
+          <div className="student-success">{status.message}</div>
+        </div>
+      </div>
+    );
+  }
+
   const questionText = ticket?.questionText ?? "";
   const questionType = ticket?.questionType ?? "";
 
-  // submit btn
+  const submitHint =
+    questionType === "multipleChoice"
+      ? "If Submit doesn’t work: pick an answer and choose confidence."
+      : questionType === "shortResponse"
+      ? "If Submit doesn’t work: type a response and choose confidence."
+      : "If Submit doesn’t work: complete the question and choose confidence.";
+
   const handleSubmit = async () => {
     if (!ticket) return;
+    if (isSubmitting) return;
 
     if (confidence == null) {
-      alert("Please select your confidence level.");
+      alert("Select your confidence (1–4) before submitting.");
       return;
     }
 
-    if (
-      ticket.questionType === "multipleChoice" &&
-      mcqSelectionIds.length === 0
-    ) {
-      alert("Please select at least one answer.");
+    if (ticket.questionType === "multipleChoice" && mcqSelectionIds.length === 0) {
+      alert("Pick an answer (A–D) before submitting.");
       return;
     }
 
     if (ticket.questionType === "shortResponse" && !shortAnswer.trim()) {
-      alert("Please enter a response.");
+      alert("Type a response before submitting.");
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       const studentId = auth.currentUser?.uid ?? null;
@@ -154,78 +161,68 @@ export default function StudentTicket() {
         ticketId: ticket.id,
         studentId,
         questionType: ticket.questionType,
-        answer:
-          ticket.questionType === "multipleChoice"
-            ? mcqSelectionIds // ["A","C"]
-            : shortAnswer.trim(),
+        answer: ticket.questionType === "multipleChoice" ? mcqSelectionIds : shortAnswer.trim(),
         confidence,
         submittedAt: serverTimestamp(),
       };
 
-      await addDoc(
-        collection(db, "tickets_public", ticket.id, "submissions"),
-        submissionPayload,
-      );
+      await addDoc(collection(db, "tickets_public", ticket.id, "submissions"), submissionPayload);
 
-      setStatus({
-        state: "submitted",
-        message: "Response submitted. Thank you!",
-      });
+      setStatus({ state: "submitted", message: "Response submitted. Thank you!" });
     } catch (err) {
       console.error("Submit error:", err);
       alert("Failed to submit response. Please try again.");
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div>
-      <h2>Exit Ticket</h2>
+    <div className="student-page">
+      <div className="panel student-panel">
+        <header className="student-header">
+          <h2 className="student-title">Exit Ticket</h2>
+          <p className="student-muted">Answer the question, then select your confidence.</p>
+        </header>
 
-      <div>
-        <p>{questionText}</p>
-      </div>
+        <hr className="student-divider" />
 
-      {/* Conditional render by questionType */}
-      <div>
-        {questionType === "multipleChoice" && (
-          <MCQQuestion
-            choices={scrambledChoices} // [{id,text}]
-            allowMultiple={ticket.publicConfig?.allowMultiple ?? false}
-            selectedIds={mcqSelectionIds}
-            onChangeSelectedIds={setMcqSelectionIds}
-          />
-        )}
+        <div className="student-question">
+          <h3 className="student-question-text student-question-center">{questionText}</h3>
 
-        {questionType === "shortResponse" && (
-          <ShortQuestion value={shortAnswer} onChange={setShortAnswer} />
-        )}
+          {questionType === "multipleChoice" && (
+            <MCQQuestion
+              choices={scrambledChoices}
+              allowMultiple={ticket.publicConfig?.allowMultiple ?? false}
+              selectedIds={mcqSelectionIds}
+              onChangeSelectedIds={setMcqSelectionIds}
+            />
+          )}
 
-        {!["multipleChoice", "shortResponse"].includes(questionType) && (
-          <p>Unsupported question type.</p>
-        )}
-      </div>
+          {questionType === "shortResponse" && (
+            <ShortQuestion value={shortAnswer} onChange={setShortAnswer} />
+          )}
 
-      {/* Confidence picker (wire later) */}
-      <div style={{ marginTop: 16 }}>
-        <ConfidencePicker value={confidence} onChange={setConfidence} />
-      </div>
-      <div>
-        {status.state !== "submitted" && (
+          {!["multipleChoice", "shortResponse"].includes(questionType) && (
+            <p className="student-muted">Unsupported question type.</p>
+          )}
+        </div>
+
+        <div className="student-confidence">
+          <ConfidencePicker value={confidence} onChange={setConfidence} />
+        </div>
+
+        <div className="student-actions">
           <button
             type="button"
+            className="btn btn-primary"
             onClick={handleSubmit}
-            style={{
-              marginTop: 20,
-              padding: "10px 16px",
-              fontSize: 16,
-              cursor: "pointer",
-            }}
+            disabled={isSubmitting}
           >
-            Submit
+            {isSubmitting ? "Submitting..." : "Submit"}
           </button>
-        )}
 
-        {status.state === "submitted" && <p>{status.message}</p>}
+          <div className="student-submit-hint">{submitHint}</div>
+        </div>
       </div>
     </div>
   );

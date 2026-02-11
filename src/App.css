@@ -909,3 +909,273 @@ a:hover {
 .pie-dot {
   color: #9ca3af;
 }
+
+/* ---------- StudentTicket ---------- */
+.student-page {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.student-panel {
+  padding: 1.1rem;
+}
+
+.student-header {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.student-title {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+.student-muted {
+  margin: 0;
+  color: #6b7280;
+}
+
+.student-divider {
+  margin: 1rem 0;
+  border: none;
+  border-top: 1px solid rgba(0,0,0,0.10);
+}
+
+.student-question-text {
+  font-size: clamp(1.3rem, 2.5vw, 1.5rem);
+  line-height: 1.45;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.student-question-center {
+  text-align: center;
+}
+
+.student-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;   
+  align-items: center;      
+  gap: 0.5rem;              
+}
+
+.student-actions .btn {
+  width: auto;          
+  min-width: 180px;     
+  padding: 0.65rem 1.25rem;
+}
+
+.student-success {
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
+  background: rgba(31, 95, 74, 0.10);
+  border: 1px solid rgba(31, 95, 74, 0.22);
+  color: #1f5f4a;
+  font-weight: 700;
+}
+
+/* helpers */
+.page-loading {
+  text-align: center;
+  color: #6b7280;
+}
+
+/* ---------- Student MCQ ---------- */
+.student-helper {
+  margin: 0 0 0.5rem;
+  color: #374151;
+  font-weight: 650;
+}
+
+.mcq-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.mcq-row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 0.65rem;
+  align-items: start;
+
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: #ffffff;
+  cursor: pointer;
+
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.mcq-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(0,0,0,0.08);
+  background: #f9fafb;
+}
+
+.mcq-row.is-checked {
+  background: rgba(31, 95, 74, 0.08);
+  border-color: rgba(31, 95, 74, 0.28);
+}
+
+.mcq-input {
+  margin-top: 3px;
+}
+
+.mcq-text {
+  line-height: 1.35;
+}
+
+/* ---------- Student short response ---------- */
+.student-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.student-textarea {
+  width: 100%;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  font-size: 1rem;
+  background: #ffffff;
+}
+
+.student-textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(31, 95, 74, 0.18);
+  border-color: rgba(31, 95, 74, 0.45);
+}
+
+/* ---------- Confidence ---------- */
+.conf {
+  margin-top: 1rem;
+}
+
+.student-confidence {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: center;
+}
+
+.conf-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.conf-buttons {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.conf-btn {
+  min-width: 52px;
+  padding: 0.6rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.conf-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(0,0,0,0.10);
+}
+
+.conf-btn.is-selected {
+  background: #1f5f4a;
+  color: #ffffff;
+  border-color: rgba(0,0,0,0.08);
+}
+
+.conf-labels {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.conf-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.conf-row.is-dim {
+  opacity: 0.6;
+}
+
+.conf-num {
+  width: 22px;
+  font-weight: 800;
+}
+
+.student-submit-hint {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* ---------- Student MCQ Layout ---------- */
+
+.student-mcq {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.student-mcq-label {
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  text-align: center;
+}
+
+.student-mcq-options {
+  width: 100%;
+  max-width: 520px;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.student-mcq-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #f9fafb;
+  cursor: pointer;
+
+  transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.student-mcq-option:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+  background: #f3f4f6;
+}
+
+.student-mcq-option.selected {
+  background: rgba(31, 95, 74, 0.10);
+  border-color: rgba(31, 95, 74, 0.30);
+}
+
+.student-mcq-option input {
+  transform: scale(1.2);
+}
+
+.student-mcq-text {
+  flex: 1;
+  text-align: left;
+}
