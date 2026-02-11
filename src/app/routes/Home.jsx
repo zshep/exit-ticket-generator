@@ -19,12 +19,13 @@ export default function Home() {
       <h1>Exit Ticket Generator</h1>
 
       <p>UID: {uid} </p>
-      <p> {/*Anonymous? {String(user?.isAnonymous)} */}</p>
+      <p> Anonymous? {String(user?.isAnonymous)}</p>
 
       <nav style={{ display: "flex", gap: 12 }}>
         <Link to="/teacher/new">Teacher: Build Ticket</Link>
-        <Link to="/teacher/live">Teacher: Live Dashboard</Link>
+        <Link to="/teacher/live/:ticketId">Teacher: Live Dashboard</Link>
         <Link to="/student/demo-ticket">Student: Demo Ticket</Link>
+        
       </nav>
     </div>
   );
