@@ -4,6 +4,9 @@ A lightweight, teacher-focused formative assessment tool for quickly creating an
 
 Built with **React**, **Vite**, and **Firebase** **(Firestore + Anonymous Auth).**
 
+## Live Demo
+https://exit-ticket-generator-f9b72.web.app/
+
 ## Overview
 
 Built from real classroom experience, this project focuses on rapid formative assessment without unnecessary friction.
