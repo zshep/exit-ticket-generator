@@ -90,13 +90,13 @@ export default function QuestionEditor() {
       isLive: nextIsLive,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-      publicConfig:
-        questionType === "multipleChoice"
-          ? {
-              allowMultiple: mcqData.allowMultiple,
-              choices: mcqData.choices,
-            }
-          : {},
+      publicConfig: {
+        allowMultiple:
+          questionType === "multipleChoice" ? !!mcqData.allowMultiple : false,
+      },
+      ...(questionType === "multipleChoice"
+        ? { choices: mcqData.choices }
+        : {}),
     };
 
     const privateDoc = {
@@ -109,15 +109,26 @@ export default function QuestionEditor() {
           : { expectedAnswer: shortData.expectedAnswer?.trim() ?? "" },
     };
 
+    console.log("questionType", questionType);
+    console.log("choices", mcqData.choices);
+
     try {
       const publicRef = doc(collection(db, "tickets_public"));
       const ticketId = publicRef.id;
       const privateRef = doc(db, "tickets_private", ticketId);
 
-      await Promise.all([setDoc(publicRef, publicDoc), setDoc(privateRef, privateDoc)]);
+      //console.log("publicDoc payload", JSON.stringify(publicDoc, null, 2));
+      
+      await Promise.all([
+        setDoc(publicRef, publicDoc),
+        setDoc(privateRef, privateDoc),
+      ]);
 
       setShareLink(`/student/${ticketId}`);
-      setStatus({ state: "success", message: "Ticket created (Closed by default)." });
+      setStatus({
+        state: "success",
+        message: "Ticket created (Closed by default).",
+      });
 
       // reset form
       setQuestionText("");
@@ -155,7 +166,9 @@ export default function QuestionEditor() {
     <div className="qe">
       <div className="qe-header">
         <h2 className="qe-title">Create Ticket</h2>
-        <p className="qe-subtitle">Build a question, then make it live from your ticket list.</p>
+        <p className="qe-subtitle">
+          Build a question, then make it live from your ticket list.
+        </p>
       </div>
 
       <div className="qe-form">
@@ -197,7 +210,11 @@ export default function QuestionEditor() {
       </div>
 
       <div className="qe-footer">
-        <button className="btn btn-primary" onClick={handleMakeTicket} disabled={isSaving}>
+        <button
+          className="btn btn-primary"
+          onClick={handleMakeTicket}
+          disabled={isSaving}
+        >
           {isSaving ? "Saving…" : "Generate Ticket"}
         </button>
 
@@ -205,11 +222,18 @@ export default function QuestionEditor() {
           <div className="qe-share">
             <div className="qe-share-row">
               <input className="qe-share-input" value={studentUrl} readOnly />
-              <button className="btn btn-secondary" type="button" onClick={copyLink}>
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={copyLink}
+              >
                 Copy
               </button>
             </div>
-            <p className="qe-hint">Ticket starts as <strong>Closed</strong>. Make it <strong>Live</strong> from the list.</p>
+            <p className="qe-hint">
+              Ticket starts as <strong>Closed</strong>. Make it{" "}
+              <strong>Live</strong> from the list.
+            </p>
           </div>
         )}
 
