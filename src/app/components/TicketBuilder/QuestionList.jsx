@@ -187,7 +187,7 @@ export default function QuestionList() {
                 onClick={async () => {
                   try {
                     await setTicketLive(uid, t.id, !isLive);
-                    showToast(!isLive ? "Ticket is now Live." : "Ticket closed.");
+                    showToast(!isLive ? "Ticket is Live." : "Ticket closed.");
                   } catch (e) {
                     console.error(e);
                     setError("Update failed (permissions or network).");
