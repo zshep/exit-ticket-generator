@@ -40,66 +40,78 @@ a:hover {
   text-align: center;
 }
 
-/* ---------- Keep old template stuff harmless (optional) ---------- */
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em rgba(100, 108, 255, 0.6));
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em rgba(97, 218, 251, 0.6));
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #6b7280;
-}
 
 /* ---------- Home styles ---------- */
 .home-container {
-  margin-top: 10rem;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 4rem;
+}
+
+.hero-section {
   text-align: center;
+  margin-bottom: 3rem;
 }
 
 .home-title {
-  font-size: clamp(2rem, 4vw, 2.75rem);
-  margin: 0 0 0.75rem;
-  letter-spacing: -0.02em;
+  font-size: 2.5rem;
+  line-height: 1.1;
+  margin-bottom: 1rem;
 }
 
 .home-subtext {
-  max-width: 48rem;
-  margin: 0 auto 2rem;
-  font-size: 1.1rem;
-  color: #374151;
-  line-height: 1.5;
+  max-width: 700px;
+  margin: 0.75rem auto;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: #444;
 }
 
-.home-nav {
-  display: flex;
-  justify-content: center;
+.secondary-text {
+  color: #666;
+}
+
+.home-actions {
+  margin-top: 1.75rem;
+}
+
+
+
+.home-feature-section,
+.home-note-section {
+  margin-top: 3rem;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.feature-card {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.feature-card h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.05rem;
+}
+
+.feature-card p {
+  margin: 0;
+  color: #555;
+  line-height: 1.5;
 }
 
 /* Evergreen / chalkboard green button */
