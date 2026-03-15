@@ -60,7 +60,7 @@ export default function StudentTicket() {
         if (uid && data.ownerId === uid) {
           setStatus({
             state: "blocked",
-            message: "You are the owner of this ticket. Open the teacher view instead.",
+            message: "You are the owner of this ticket. Open the teacher view instead. Demo note: Try opening this ticket in private/incognito mode to view ",
           });
           return;
         }
@@ -95,9 +95,9 @@ export default function StudentTicket() {
   const scrambledChoices = useMemo(() => {
     if (!ticket) return [];
     if (ticket.questionType !== "multipleChoice") return [];
-    const choices = ticket.publicConfig?.choices ?? [];
+    const choices = ticket.choices ?? [];
     return shuffle(choices);
-  }, [ticket?.id]);
+  }, [ticket?.id, ticket?.choices]);
 
   if (status.state === "loading") return <p className="page-loading">{status.message}</p>;
 

@@ -118,11 +118,18 @@ export default function QuestionEditor() {
       const privateRef = doc(db, "tickets_private", ticketId);
 
       //console.log("publicDoc payload", JSON.stringify(publicDoc, null, 2));
-      
+
+      /*
       await Promise.all([
         setDoc(publicRef, publicDoc),
         setDoc(privateRef, privateDoc),
-      ]);
+      ]); */
+
+      await setDoc(publicRef, publicDoc);
+      console.log("public doc saved");
+
+      await setDoc(privateRef, privateDoc);
+      console.log("private doc saved");
 
       setShareLink(`/student/${ticketId}`);
       setStatus({
